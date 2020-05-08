@@ -1,0 +1,17 @@
+{
+    "name": "nyrados/file-utils",
+    "version": "0.1",
+    "description": "Utils for accessing files",
+    "require": {
+        "php": "^7.2",
+        "psr/http-message": "^1.0"
+    },
+    "require-dev": {
+        "guzzlehttp/guzzle": "~6.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Nyrados\\Utils\\File\\": "src/"
+        }
+    }
+}
