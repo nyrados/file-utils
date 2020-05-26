@@ -3,40 +3,42 @@ namespace Nyrados\Utils\File\Exception;
 
 use Exception;
 use Nyrados\Utils\File\File;
+use Nyrados\Utils\File\Target;
 use Throwable;
 
 class FileException extends Exception
 {
+    protected $filename;
+    protected $prefix;
 
-    /** @var File */
-    protected $fileTarget;
-
-    public function __construct(File $file, string $message = '', $cause = '')
+    public function __construct($file, string $messagePrefix = '', $cause = '')
     {
-        $this->file = $file;
+        $this->prefix = $messagePrefix;
+        $this->filename = $file instanceof Target ? $file->toString() : $file;
         $causeString = ($cause instanceof Throwable) ? $cause->getMessage() : (string) $cause;
 
-        parent::__construct($this->formatMessage($message, $causeString));
+        parent::__construct($this->formatMessage($messagePrefix, $causeString));
     }
 
-    final public function getFileTarget(): File
+    final public function getFilename()
     {
-        return $this->file;
+        return $this->filename;
     }
 
     final public function setCause(string $cause)
     {
-        $this->message = $this->formatMessage($this->getMessage(), $cause);
+        $this->message = $this->formatMessage($this->prefix, $cause);
     }
 
-    private function formatMessage(string $message = '', string $cause = ''): string
+    protected function getMessageFormat(): string
     {
+        return "Error occured file '%s'";
+    }
 
-        $msg = sprintf("Error occured on file '%s'", $this->getFile()->getPath());
-
-        if (!empty($message)) {
-            $msg .= ': ' . $message;
-        }
+    private function formatMessage(string $prefix = '', string $cause = ''): string
+    {        
+        $msg = empty($prefix) ? '' : ($prefix .  ': ');
+        $msg .= sprintf($this->getMessageFormat(), $this->filename);
 
         if (!empty($cause)) {
             $msg .= sprintf(", caused by '%s'", $cause); 
