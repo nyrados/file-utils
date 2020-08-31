@@ -1,6 +1,8 @@
 <?php
+
 namespace Nyrados\Utils\File;
 
+use Directory;
 use Nyrados\Utils\File\Exception\FileAlreadyExistsException;
 use Nyrados\Utils\File\Exception\FileException;
 use Nyrados\Utils\File\Exception\FileNotFoundException;
@@ -10,14 +12,9 @@ use Nyrados\Utils\File\Exception\FileTypeException;
 
 /**
  * File Class for a controlled File Access
- * 
- * All Paths and uris will be normalized, see Nyrados\Utils\{Path, WrapperPath}
- * 
  */
-final class File extends WrapperPath
+final class File extends FileUri
 {
-
-
     /**
      * Checks if file exists.
      *
@@ -80,7 +77,7 @@ final class File extends WrapperPath
 
     /**
      * Gives information about the file.
-     * 
+     *
      * @see https://www.php.net/manual/en/function.stat.php
      *
      * @return void
@@ -89,40 +86,6 @@ final class File extends WrapperPath
     {
         $this->assertExistance();
         return stat($this->toString());
-    }
-
-    /**
-     * Returns Files Metadata as array
-     *
-     * @return void
-     */
-    public function toArray(): array
-    {        
-        $data = [
-            'uri' => $this->toString(),
-            'path' => $this->getPath(),
-            'name' => $this->getName(),
-            'exist' => $this->exists(),
-            
-        ];
-
-        if($this->exists()) {
-            $data['type'] = $this->isDir() ? 'dir' : 'file';
-        }
-
-        return $data;
-    }
-
-    /**
-     * Returns Parent Directory 
-     * 
-     * If No Parent Directory is present, it returns the same Directory
-     *
-     * @return static
-     */
-    public function getParent()
-    {
-        return $this->withPath(parent::getParent());
     }
 
     /** CREATE METHODS */
@@ -137,10 +100,10 @@ final class File extends WrapperPath
     public function createDirIfNotExists($mode = 0777, $recrusive = true): void
     {
         if ($this->notExists()) {
-            $this->assert(function() use ($mode, $recrusive) {
+            $this->assert(function () use ($mode, $recrusive) {
                 mkdir($this->toString(), $mode, $recrusive);
-            });
-            $this->assertIsDir();
+            }, 'Failed to create Directory');
+            $this->assertIsDirectory();
         }
     }
 
@@ -152,157 +115,78 @@ final class File extends WrapperPath
     public function createFileIfNotExitst()
     {
         if ($this->notExists()) {
-            $file = fopen($this->toString(), "w");
-            fwrite($file,""); 
-            fclose($file);    
-            $this->assertIsFile();        
+            $this->openFileStream('w');
+            $this->assertIsFile();
         }
-    }
-
-
-
-    /**
-     * Copies the file
-     * 
-     * If you use a relative path the parent Directory of this file
-     * will be used as current working directory.
-     * These copy Statements does the same:
-     * 
-     * $file = new File('/path/to/my/foo')
-     * 
-     * $file->copy('bar');
-     * $file->copy('/path/to/my/bar');
-     *
-     * @param string|Path $destination
-     * @return void
-     */
-    public function copy($destination)
-    {
-        $this->assertExistance('Failed to copy');
-
-        $destination = $this->getParent()->withPath($destination);
-        $destination->assertNotExistance('Failed to copy');
-
-        if($this->isDir()) {
-
-            $destination->createDirIfNotExists();
-            foreach ($this->getChildren() as $child) {
-                $child->copy($destination->withPath($child->getName()));
-            }
-
-        } else {
-
-            if ($destination->isFile()) {
-                throw new FileAlreadyExistsException($destination->toString());
-            }
-
-            $this->assert(function() use ($destination) {
-                return copy($this->toString(), $destination->toString());
-            });
-        }
-    }
-
-    /**
-     * Deletes the current file completly.
-     *
-     * @return void
-     */
-    public function delete(): void
-    {
-        $this->assertExistance('Failed to delete');
-    
-        if ($this->isDir()) {
-            foreach ($this->getChildren() as $child) {
-                $child->delete();
-            }
-            $this->assert(function() {
-                rmdir($this->toString());
-            }, 'Failed to delete directory');
-        } else {
-
-            $this->assert(function() {
-                unlink($this->toString());
-            }, 'Failed to delete file'); 
-        }
-    }
-
-    /**
-     * Renames the file
-     * 
-     * If you use a relative path the parent Directory of this file
-     * will be used as current working directory.
-     * These rename Statements does the same:
-     * 
-     * $file = new File('/path/to/my/foo')
-     * 
-     * $file->rename('bar');
-     * $file->rename('/path/to/my/bar');
-     *
-     * @param string|Path $destination
-     * @return void
-     */
-    public function rename($destination)
-    {
-        $destination = $this->getParent()->withPath($destination);
-        $this->assert(function() use ($destination) {
-            rename($this->toString(), $destination->toString());
-        });
     }
 
     /**
      * Opens Resource if file is a directory
      *
      * @param boolean $ignoreDots
-     * @return DirectoryStream
+     * @return Directory
      */
-    public function openDirStream($ignoreDots = false): DirectoryStream
+    public function openDirectory(): Directory
     {
-        $this->assertIsDir('Failed to open directory');
-        return new DirectoryStream($this, $ignoreDots);
+        $this->assertIsDirectory('Failed to open directory');
+        return dir($this->toString());
     }
 
     /**
      * Opens Resource if file is a file.
      *
      * @see https://www.php.net/manual/en/function.fopen
-     * 
+     *
      * @throws FileException
      * @param string $mode
      * @return resource
      */
     public function openFileStream(string $mode = 'r')
     {
-
-        $this->assertIsFile('Failed to open file');
-        return $this->assert(function() use ($mode) {
+        return $this->assert(function () use ($mode) {
             return fopen($this->toString(), $mode);
         });
     }
 
     /**
+     * Renames/moves the current file to $destination
+     *
+     * @param string $destination
+     * @return void
+     */
+    public function rename(string $destination)
+    {
+        $destination = new self($destination);
+        $this->assert(function () use ($destination) {
+            rename($this->toString(), $destination->toString());
+        }, 'Failed to rename');
+    }
+
+    /**
      * Lists Names of Children if file is a directory.
      *
-     * 
-     * @see https://www.php.net/manual/en/function.scandir.php
-     * 
      * @throws FileException
-     * @param boolean $ignoreDots if true ., .. will be removed from the array
+     * @param boolean $ignoreDots if true ., .. will be removed from the return array
      * @return string[]
      */
     public function scandir($ignoreDots = false): array
     {
-        $this->assertIsDir();
-        $dir = $this->openDirStream($ignoreDots);
+        $this->assertIsDirectory();
+        $dir = $this->openDirectory();
         $rs = [];
         while (false !== ($file = $dir->read())) {
-            if (!$ignoreDots || $file != '..') {
-                $rs[] = $file;
+            if ($ignoreDots && ($file === '..' || $file === '.')) {
+                continue;
             }
+
+            $rs[] = $file;
         }
+
         sort($rs);
 
-        return $rs;
+        $dir->close();
 
+        return $rs;
     }
 
     /**
@@ -314,8 +198,9 @@ final class File extends WrapperPath
     public function getChildren(): array
     {
         $result = [];
-        foreach ($this->scandir(true) as $file) {
-            $file = $this->withPath($file);
+        foreach ($this->scandir(true) as $fileName) {
+            $file = $this->withPath($fileName);
+
             if ($file->isReadable()) {
                 $result[] = $file;
             }
@@ -325,29 +210,124 @@ final class File extends WrapperPath
     }
 
     /**
-     * Returns clone instance with a another Path or Uri.
-     * 
-     * If you use a relative path it will append to your current path.
-     * If you use a absolute path it the path will replace the current.
-     * If you use a uri the whole uri will replaced.
+     * Deletes the current file/directory completely
      *
-     * @param string|Path $path
-     * @return static 
+     * @return void
      */
-    public function get($path)
+    public function delete(): void
     {
-        return $this->withPath($path);
+        $this->assertExistance('Failed to delete');
+    
+        if ($this->isDir()) {
+            foreach ($this->scandir(true) as $child) {
+                $this->withPath($child)->delete();
+            }
+
+            $this->assert(function () {
+                rmdir($this->toString());
+            }, 'Failed to delete directory');
+        } else {
+            $this->assert(function () {
+                unlink($this->toString());
+            }, 'Failed to delete file');
+        }
     }
 
     /**
-     * Details for using var_dump().
+     * Copies current file to $destination
      *
-     * @return array
+     * @param string $destination
+     * @return void
      */
-    public function __debugInfo()
+    public function copy(string $destination): void
     {
-        return $this->toArray();
+        $this->assertExistance('Failed to copy');
+        $destination = new self($destination);
+        $destination->assertNotExistance('Failed to copy');
+
+        if ($this->isDir()) {
+            $destination->createDirIfNotExists();
+            foreach ($this->getChildren() as $child) {
+                $child->copy($destination->withPath($child->getName()));
+            }
+        } else {
+            $this->assert(function () use ($destination) {
+                return copy($this->toString(), $destination->toString());
+            });
+        }
     }
+
+
+    /**
+     * Assert that the file exists.
+     *
+     * @param string $message
+     * @return void
+     */
+    public function assertExistance(string $message = ''): void
+    {
+        $this->assert([$this, 'exists'], new FileNotFoundException($this->toString(), $message));
+    }
+
+    /**
+     * Assert that the file does not exists.
+     *
+     * @param string $message
+     * @return void
+     */
+    public function assertNotExistance(string $message = ''): void
+    {
+        $this->assert([$this, 'notExists'], new FileAlreadyExistsException($this->toString(), $message));
+    }
+
+    /**
+     * Assert that the file is directory.
+     *
+     * @param string $message
+     * @return void
+     */
+    public function assertIsDirectory(string $message = ''): void
+    {
+        $this->assertExistance($message);
+        $this->assert([$this, 'isDir'], new FileTypeException('Directory', $this->toString(), $message));
+    }
+
+    /**
+     * Assert that the file is a file and not a directory.
+     *
+     * @param string $message
+     * @return void
+     */
+    public function assertIsFile(string $message = ''): void
+    {
+        $this->assertExistance($message);
+        $this->assert([$this, 'isFile'], new FileTypeException('File', $this->toString(), $message));
+    }
+
+    /**
+     * Assert that the file is readable.
+     *
+     * @param string $message
+     * @return void
+     */
+    public function assertReadable(string $message = ''): void
+    {
+        $this->assertExistance($message);
+        $this->assert([$this, 'isReadable'], new FileNotReadableException($this->toString(), $message));
+    }
+
+    /**
+     * Assert that the file is writeable.
+     *
+     * @param string $message
+     * @return void
+     */
+    public function assertWriteable(string $message = ''): void
+    {
+        $this->assertExistance($message);
+        $this->assert([$this, 'isWriteable'], new FileNotWriteableException($this->toString(), $message));
+    }
+
 
     /**
      * Assert that a callback returns not false or throws an PHP Error.
@@ -355,7 +335,7 @@ final class File extends WrapperPath
      * @param callable $callback
      * @param null|string|FileException $e
      * @throws FileException if $callback fails
-     * @return void
+     * @return mixed return value of $callback
      */
     protected function assert(callable $callback, $e = null)
     {
@@ -373,76 +353,4 @@ final class File extends WrapperPath
 
         return $rs;
     }
-
-    /**
-     * Assert that the file exists.
-     *
-     * @param string $message
-     * @return void
-     */
-    public function assertExistance(string $message = '')
-    {
-        $this->assert([$this, 'exists'], new FileNotFoundException($this->toString(), $message));
-    }
-
-    /**
-     * Assert that the file does not exists.
-     *
-     * @param string $message
-     * @return void
-     */
-    public function assertNotExistance(string $message = '')
-    {
-        $this->assert([$this, 'notExists'], new FileAlreadyExistsException($this->toString(), $message));
-    }
-
-    /**
-     * Assert that the file is directory.
-     *
-     * @param string $message
-     * @return void
-     */
-    public function assertIsDir(string $message = '')
-    {
-        $this->assertExistance($message);
-        $this->assert([$this, 'isDir'], new FileTypeException('Directory', $this->toString(), $message));
-    }
-
-    /**
-     * Assert that the file is a file and not a directory.
-     *
-     * @param string $message
-     * @return void
-     */
-    public function assertIsFile(string $message = '')
-    {
-        $this->assertExistance($message);
-        $this->assert([$this, 'isFile'], new FileTypeException('File', $this->toString(), $message));
-    }
-
-    /**
-     * Assert that the file is readable.
-     *
-     * @param string $message
-     * @return void
-     */
-    public function assertReadable(string $message = '')
-    {
-        $this->assertExistance($message);
-        $this->assert([$this, 'isReadable'], new FileNotReadableException($this->toString(), $message));
-    }
-
-    /**
-     * Assert that the file writeable.
-     *
-     * @param string $message
-     * @return void
-     */
-    public function assertWriteable(string $message = '')
-    {
-        $this->assertExistance($message);
-        $this->assert([$this, 'isWriteable'], new FileNotWriteableException($this->toString(), $message));
-    }
-
-    
 }

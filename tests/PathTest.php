@@ -2,21 +2,22 @@
 
 namespace Nyrados\Utils\File\Tests;
 
-use GuzzleHttp\Psr7\Uri;
-use Nyrados\Utils\File\FileUri;
-use Nyrados\Utils\File\FileUtils;
 use Nyrados\Utils\File\Path;
 use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\UriInterface;
 
 class PathTest extends TestCase
 {
+    public function getPath($path)
+    {
+        return new Path($path);
+    }
+
     /**
      * @dataProvider normalizeDataSet
      */
     public function testCanNormalize($before, $expect): void
     {
-        $this->assertSame($expect, (new Path($before))->toString());
+        $this->assertSame($expect, $this->getPath($before)->getPath());
     }
 
     public function normalizeDataSet()
@@ -35,11 +36,12 @@ class PathTest extends TestCase
             ['/C:/abc', 'C:/abc'],
             ['/C:', 'C:/'],
             ['  abc/   ', 'abc'],
-            ['/abc/.', '/abc'],            
+            ['/abc/.', '/abc'],
             ['C:\\.', 'C:/'],
             ['/abc', '/abc'],
             ['/abc/', '/abc'],
             ['  / ', '/'],
+            ['/abc', '/abc'],
             ['E:\\abc\\.\\def\\ ', 'E:/abc/def'],
             ['E:', 'E:/'],
             ['F://', 'F:/'],
@@ -47,12 +49,11 @@ class PathTest extends TestCase
             ['', ''],
             ['abc', 'abc'],
             ['abc/', 'abc'],
-            [' X:\\abc\\.\\..\\.file\\image.jpg', 'X:/abc/../.file/image.jpg']
+            [' X:\\abc\\.\\..\\.dir\\image.jpg', 'X:/abc/../.dir/image.jpg']
         ];
     }
 
-
-    public function testHasCorrectBehaviour(): void
+    public function testHasCorrectStringifyBehaviour(): void
     {
         $path = new Path('/path/to/my/dir');
         $expect = '/path/to/my/dir';
@@ -60,36 +61,14 @@ class PathTest extends TestCase
         $this->assertSame($expect, (string) $path);
         $this->assertSame($expect, $path->toString());
         $this->assertSame($expect, $path->getPath());
-        $this->assertSame($expect, (new Path($path))->getPath());
-
-        $this->assertSame('/path/to/my/image.png', $path->getParent()->withPath('image.png')->toString());
-        $this->assertSame('/image.png', $path->withPath('/image.png')->toString());
     }
 
-
-    /**
-     * @dataProvider normalizeBackwardsDataset
-     * @depends testCanNormalize
-     */
-    public function testCanNormalizeBackwardsPath($before, $expect)
+    public function testCanUseWithPath(): void
     {
-        $this->assertSame($expect, (new Path($before))->withoutBackwards()->toString());
-    }
+        $path = new Path('/path/');
 
-    public function normalizeBackwardsDataset()
-    {
-        //Before => expected
-        return [
-            ['C:/..', 'C:/'],
-            ['C:/abc/def/../', 'C:/abc'],
-            ['/abc/def/../../../', '/'],
-            ['/abc/../', '/'],
-            ['/abc/def/..', '/abc'],
-            ['/abc/./def/../abc', '/abc/abc'],
-            ['./abc/../', ''],
-            ['abc/../', ''],
-            ['abc/def/..', 'abc']
-        ];
+        $this->assertSame('/dir/image.png', $path->withPath('/dir/image.png')->getPath());
+        $this->assertSame('/path/dir/image.png', $path->withPath('dir/image.png')->getPath());
     }
 
 
@@ -97,43 +76,43 @@ class PathTest extends TestCase
      * @dataProvider absolutePathDataset
      * @depends testCanNormalize
      */
-    public function testCanDetectAbsolutePath($path, $expect)
+    public function testCanDetectPathType($path, $expectAbsolute, $expectRoot)
     {
-        $path = new Path($path);
+        $path = $this->getPath($path);
 
-        if ($expect) {
+        if ($expectAbsolute) {
             $this->assertTrue($path->isAbsolute());
             $this->assertFalse($path->isRelative());
 
             $this->assertTrue($path->asRelative()->isRelative());
-
         } else {
-            
             $this->assertTrue($path->isRelative());
             $this->assertFalse($path->isAbsolute());
 
             $this->assertTrue($path->asAbsolute()->isAbsolute());
             $this->assertTrue($path->asAbsolute('C:/abc')->isAbsolute());
-
-
-
         }
+
+        $expectRoot ? $this->assertTrue($expectRoot) : $this->assertFalse($expectRoot);
     }
-    
+
     public function absolutePathDataset()
     {
         return [
 
-            //Path => isAbsolute
+            //Path => isAbsolute, isRoot
 
-            ['/abc', true],
-            ['E:', true],
-            ['F://', true],
+            ['/abc', true, false],
+            ['E:', true, true],
+            ['F://', true, true],
+            ['/', true, true],
 
-            ['C:\\path\\to\\', true],
-            ['', false],
-            ['abc', false],
-            ['abc/', false]
+            ['C:\\path\\to\\', true, false],
+            ['./', false, false],
+            ['', false, false],
+            ['abc', false, false],
+            ['abc/', false, false],
+            
         ];
     }
 
@@ -141,10 +120,10 @@ class PathTest extends TestCase
     /**
      * @dataProvider windowsPathDataset
      * @depends testCanNormalize
-     */    
-    public function testCanDetectWindowsPath($path, $expect)
+     */
+    public function testCanDetectWindowsPath($path, $expect): void
     {
-        $value = (new Path($path))->isWindowsPath();
+        $value = $this->getPath($path)->isWindowsPath();
         $expect ? $this->assertTrue($value) : $this->assertFalse($value);
     }
 
@@ -163,7 +142,4 @@ class PathTest extends TestCase
             ['/abc', false]
         ];
     }
-
-    
-
 }

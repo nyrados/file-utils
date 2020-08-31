@@ -22,24 +22,24 @@ class FileUtils
     /**
      * Normalizes a File Path Simple Path.
      *
-     * Things that will be normalized: 
-     * 
+     * Things that will be normalized:
+     *
      * - Backlashes & urlencoded Backslashes to normal Slashes
      * - Path will be trimmed
      * - A Endlash will be removed (if its not a root directory)
-     * - Windows Drive without a slash gets one ( C: => C:/ ) 
+     * - Windows Drive without a slash gets one ( C: => C:/ )
      * - A Slash before a windows drive gets removed (/C:/ => C:/)
      * - Single Dots will be removed
      *   - ./a/b => a/b
      *   - /a/./b => /a/b
      *   - /a/b/. => /a/b
-     * 
+     *
      * @param string|Path $path
      * @return string
      */
     public static function normalizePath($path): string
     {
-        if($path instanceof Path) {
+        if ($path instanceof Path) {
             return $path->getPath();
         }
 
@@ -53,7 +53,7 @@ class FileUtils
         $path = preg_replace('/\/\.\//', '/', $path);
         $path = preg_replace('/([\/]?)(' . self::REGEX_WINDOWSDRIVE . ')(\/|$)/', '$2/', $path);
 
-        if(empty($path) || $path == '.') {
+        if (empty($path) || $path == '.') {
             return '';
         }
 
@@ -61,8 +61,34 @@ class FileUtils
             $path = substr($path, 0, -1);
         }
 
-        if(preg_match('/^' . self::REGEX_WINDOWSDRIVE . '$/', $path)) {
+        if (preg_match('/^' . self::REGEX_WINDOWSDRIVE . '$/', $path)) {
             $path .= '/';
+        }
+
+        return $path;
+    }
+
+    public static function isUri($uri)
+    {
+        return preg_match('/^' . FileUtils::REGEX_WRAPPERNAME . ':\//', (string) $uri);
+    }
+
+    public static function removeBackwards($path): string
+    {
+        $i = 0;
+        $dirs = explode("/", $path);
+        $rs = [];
+
+        for ($j = sizeof($dirs) - 1; $j >= 0; --$j) {
+            if (trim($dirs[$j]) ==="..") {
+                $i++;
+            } else {
+                if ($i > 0) {
+                    $i--;
+                } else {
+                    $rs[] = $dirs[$j];
+                }
+            }
         }
 
         return $path;
