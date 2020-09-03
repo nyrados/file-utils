@@ -1,20 +1,15 @@
 <?php
+
 namespace Nyrados\Utils\File\Tests;
 
 use PHPUnit\Framework\TestCase;
 use Nyrados\Utils\File\File;
 
-class FileTest extends TestCase
+abstract class AbstractFileTest extends TestCase
 {
-    public function getRootDirectory()
-    {
-        return __DIR__ . '/files';
-    }
+    abstract public function getSourceDirectory(): string;
 
-    public function getSourceDirectory(): string
-    {
-        return __DIR__ . '/files_source';
-    }
+    abstract public function getPlaygroundDirectory(): string;
 
     public function testSourceFolderExists(): void
     {
@@ -45,18 +40,6 @@ class FileTest extends TestCase
 
         fclose($fp);
     }
-
-    public function testCanCreateDirectory()
-    {
-        $dir = new File($this->getSourceDirectory());
-        $dir->assertExistance();
-
-        $create = new File($this->getRootDirectory());
-        $create->createDirIfNotExists();
-
-        $this->assertFileExists($create->toString());
-    }
-
     
     public function testCanReadDirectoryWithoutDots()
     {
@@ -69,22 +52,33 @@ class FileTest extends TestCase
         }
     }
 
+    public function testCanCreateDirectory()
+    {
+        $dir = new File($this->getSourceDirectory());
+        $dir->assertExistance();
+
+        $create = new File($this->getPlaygroundDirectory());
+        $create->createDirIfNotExists();
+
+        $this->assertFileExists($create->toString());
+    }
+
     public function testCanCopy()
     {
         $org = new File(__DIR__ . '/files_source');
 
-        $org->withPath('work')->copy($this->getRootDirectory() . '/work');
-        $org->withPath('folder')->copy($this->getRootDirectory() . '/folder');
-        $org->withPath('text.txt')->copy($this->getRootDirectory() . '/text.txt');
+        $org->withPath('work')->copy($this->getPlaygroundDirectory() . '/work');
+        $org->withPath('folder')->copy($this->getPlaygroundDirectory() . '/folder');
+        $org->withPath('text.txt')->copy($this->getPlaygroundDirectory() . '/text.txt');
 
-        $this->assertDirectoryExists($this->getRootDirectory() . '/work');
-        $this->assertFileExists($this->getRootDirectory() . '/work/essay.txt');
-        $this->assertFileExists($this->getRootDirectory() . '/folder/element a');
+        $this->assertDirectoryExists($this->getPlaygroundDirectory() . '/work');
+        $this->assertFileExists($this->getPlaygroundDirectory() . '/work/essay.txt');
+        $this->assertFileExists($this->getPlaygroundDirectory() . '/folder/element a');
     }
 
     public function testCanDeleteFile()
     {
-        $file = new File($this->getRootDirectory() . '/work/backup.txt');
+        $file = new File($this->getPlaygroundDirectory() . '/work/backup.txt');
 
         $this->assertFileExists($file->toString());
         $file->delete();
@@ -93,7 +87,7 @@ class FileTest extends TestCase
 
     public function testCanDeleteDirectory()
     {
-        $dir = new File($this->getRootDirectory());
+        $dir = new File($this->getPlaygroundDirectory());
         $this->assertFileExists($dir->toString());
         $dir->delete();
         $this->assertFileDoesNotExist($dir->toString());

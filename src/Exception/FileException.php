@@ -14,18 +14,18 @@ class FileException extends Exception
     public function __construct($file, string $messagePrefix = '', $cause = '')
     {
         $this->prefix = $messagePrefix;
-        $this->filename = $file instanceof Target ? $file->toString() : $file;
+        $this->filename = $file instanceof File ? $file->toString() : $file;
         $causeString = ($cause instanceof Throwable) ? $cause->getMessage() : (string) $cause;
 
         parent::__construct($this->formatMessage($messagePrefix, $causeString));
     }
 
-    final public function getFilename()
+    final public function getFilename(): string
     {
         return $this->filename;
     }
 
-    final public function setCause(string $cause)
+    final public function setCause(string $cause): void
     {
         $this->message = $this->formatMessage($this->prefix, $cause);
     }
@@ -36,12 +36,12 @@ class FileException extends Exception
     }
 
     private function formatMessage(string $prefix = '', string $cause = ''): string
-    {        
+    {
         $msg = empty($prefix) ? '' : ($prefix .  ': ');
         $msg .= sprintf($this->getMessageFormat(), $this->filename);
 
         if (!empty($cause)) {
-            $msg .= sprintf(", caused by '%s'", $cause); 
+            $msg .= sprintf(", caused by '%s'", $cause);
         }
 
         return $msg;

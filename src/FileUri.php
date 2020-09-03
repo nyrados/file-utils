@@ -77,6 +77,7 @@ class FileUri extends Path
      *   getUri():      myWrapper:/my/file
      *   getWrapper():  myWrapper:///my/file
      *
+     *   Case for file:
      *   getUri():      file:/C:/Users
      *   getWrapper():  C:/Users
      *
