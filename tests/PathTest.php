@@ -69,6 +69,10 @@ class PathTest extends TestCase
 
         $this->assertSame('/dir/image.png', $path->withPath('/dir/image.png')->getPath());
         $this->assertSame('/path/dir/image.png', $path->withPath('dir/image.png')->getPath());
+
+        $path = new Path('/');
+        $this->assertSame('/abc', $path->withPath('abc')->getPath());
+        $this->assertSame('/abc', $path->withPath('/abc')->getPath());
     }
 
 

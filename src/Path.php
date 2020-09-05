@@ -101,20 +101,18 @@ class Path
      * @param string $path
      * @return static
      */
-    public function withPath(string $path, $forceAbsolute = false): self
+    public function withPath(string $path): self
     {
         $path = new self($path);
         $new = clone $this;
 
         $path = new self($path);
+
         if ($path->isAbsolute()) {
             $new->path = $path->path;
+        } else {
+            $new->path = $this->isRoot() ? $this->path . $path->path : $this->path . '/' . $path->path;
         }
-
-        $new->path = $path->isAbsolute()
-            ? $path->path
-            : $this->path . '/' . $path->path;
-
 
         return $new;
     }
